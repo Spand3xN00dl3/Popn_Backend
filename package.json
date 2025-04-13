@@ -9,6 +9,10 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@azure/openai": "^2.0.0",
+    "@azure/search-documents": "^12.1.0",
+    "@langchain/core": "^0.3.43",
+    "@langchain/openai": "^0.5.4",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

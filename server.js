@@ -2,6 +2,10 @@
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
+const { AzureOpenAIEmbeddings } = require('@langchain/openai');
+
+// const { OpenAIClient, AzureKeyCredential } = require('@azure/openai');
+const { SearchClient, AzureKeyCredential } = require('@azure/search-documents');
 
 const app = express();
 app.use(cors());
@@ -19,20 +23,126 @@ const sqlConfig = {
     }
 };
 
+const searchClient = new SearchClient(
+    process.env.AZURE_SEARCH_ENDPOINT,
+    process.env.AZURE_SEARCH_INDEX,
+    new AzureKeyCredential(process.env.AZURE_SEARCH_API_KEY)
+);
+
+// const embeddings = new OpenAIEmbeddings({
+//     // Note: these property names may vary by LangChain version – check the docs for your version
+//     azureOpenAIApiKey: process.env.AZURE_OPENAI_API_KEY,
+//     azureOpenAIApiInstanceName: process.env.AZURE_OPENAI_INSTANCE_NAME,
+//     azureOpenAIApiDeploymentName: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+//     azureOpenAIApiVersion: process.env.AZURE_OPENAI_API_VERSION,
+//     modelName: process.env.AZURE_OPENAI_MODEL_NAME,
+//   });
+
+const embeddings = new AzureOpenAIEmbeddings({
+    azureOpenAIApiKey: process.env.AZURE_OPENAI_API_KEY, // In Node.js defaults to process.env.AZURE_OPENAI_API_KEY
+    azureOpenAIApiInstanceName: process.env.AZURE_OPENAI_INSTANCE_NAME, // In Node.js defaults to process.env.AZURE_OPENAI_API_INSTANCE_NAME
+    azureOpenAIApiEmbeddingsDeploymentName: process.env.AZURE_OPENAI_DEPLOYMENT_NAME, // In Node.js defaults to process.env.AZURE_OPENAI_API_EMBEDDINGS_DEPLOYMENT_NAME
+    azureOpenAIApiVersion: process.env.AZURE_OPENAI_API_VERSION, // In Node.js defaults to process.env.AZURE_OPENAI_API_VERSION
+    maxRetries: 1,
+  });
+
+// async function getUserEmbedding(paragraph) {
+//     // This uses the Azure OpenAI Embedding endpoint via the @azure/openai package
+//     const embeddingResponse = await openAIClient.getEmbeddings(
+//         process.env.AZURE_OPENAI_EMBED_MODEL_DEPLOYMENT, 
+//         [paragraph]  // you can send multiple strings if needed
+//     );
+
+//     // embeddingResponse.data is an array of embedding objects (one per input)
+//     // For a single input, we just take embeddingResponse.data[0]
+//     const embedding = embeddingResponse.data[0].embedding;
+//     return embedding;
+// }
+
+app.post('/recommend-clubs', async (req, res) => {
+    console.log("reccomend-clubs endpoint reached");
+
+    try {
+        const { userText, topN } = req.body;
+        if (!userText) {
+            console.log("no user text given");
+            return res.status(400).json({ error: 'Missing userText in request body.' });
+        }
+        const vector = await embeddings.embedQuery(userText);
+        // console.log(vector);
+        console.log("got vector");
+        const searchResults = await searchClient.search('*', {
+            vectorSearchOptions: {
+                queries: [
+                    {
+                        kind: "vector",
+                        vector: vector,
+                        fields: ["text_vector"],
+                        kNearestNeighborsCount: topN
+                    }
+                ]
+                // value: userVector,
+                // k: topN,
+                // fields: 'chunk'
+            }
+        });
+        console.log("obtained results");
+        const clubs = [];
+        for await (const result of searchResults.results) {
+            console.log(Object.keys(result));
+            console.log(result);
+            clubs.push({
+                clubName: result.document.ClubName,
+                score: result.score
+            });
+        }
+        console.log(clubs);
+        res.json(clubs);
+    } catch(err) {
+        return res.status(500).json({ error: "Server Error Ocurred" });
+    }
+//   try {
+//     const { userParagraph } = req.body;
+
+//     if (!userParagraph) {
+//       return res.status(400).json({ error: 'Missing userParagraph in request body.' });
+//     }
+
+//     console.log(`User Paragraph ${userParagraph}`);
+//     // A) Convert user paragraph to embedding
+//     const userVector = await getUserEmbedding(userParagraph);
+//     console.log("obtained vector embedding");
+    // B) Perform vector search in Azure Cognitive Search
+    
+    // console.log("obtained results");
+    // // Collect the top 10 matching clubs
+    // const clubs = [];
+    // for await (const result of searchResults.results) {
+    //   clubs.push({
+    //     clubID: result.document.clubID,
+    //     clubName: result.document.clubName,
+    //     clubDescription: result.document.clubDescription,
+    //     score: result.score // optional: see how close the match is
+    //   });
+    // }
+    // console.log("Obtained clubs");
+
+    // return res.json({ clubs });
+//   } catch (error) {
+//     console.error('Error in /recommend-clubs:', error);
+//     return res.status(500).json({ error: 'Server error occurred.' });
+//   }
+});
+
+
 app.get('/clubs', async (req, res) => {
     try {
         await sql.connect(sqlConfig);
         console.log("connected to pool");
-        const response = await sql.query`SELECT TOP 100 * FROM CLUBS`;
+        const response = await sql.query`SELECT TOP 100 ClubName, Description FROM CLUBS`;
         const formattedResult = response.recordset.map(row => ({
             name: row.ClubName,
             description: row.Description,
-            link: row.Link,
-            facebook: row.Facebook,
-            linkedin: row.LinkedIn,
-            instagram: row.Instagram,
-            youtube: row.YouTube,
-            website: row.ClubWebsite
         }));
         res.json(formattedResult);
         // console.log(formattedResult);
@@ -50,8 +160,9 @@ app.get('/clubs/:title', async (req, res) => {
     try {
         const { title } = req.params;
         console.log("specific club data accessed: " + title);
-        await sql.connect(sqlConfig);
-        const result = await sql.query`SELECT * FROM CLUBS WHERE ClubName=${title}`;
+        const pool = await sql.connect(sqlConfig);
+        const result = await pool.request().input('clubName', title).query('SELECT * FROM CLUBS WHERE ClubName=@clubName');
+        // const result = await sql.Request().query`SELECT * FROM CLUBS WHERE ClubName=${title}`;
 
         if(result.recordset.length === 0) {
             console.log(`Couldn't find club name: ${title}`);
