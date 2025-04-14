@@ -44,7 +44,7 @@ const embeddings = new AzureOpenAIEmbeddings({
     azureOpenAIApiEmbeddingsDeploymentName: process.env.AZURE_OPENAI_DEPLOYMENT_NAME, // In Node.js defaults to process.env.AZURE_OPENAI_API_EMBEDDINGS_DEPLOYMENT_NAME
     azureOpenAIApiVersion: process.env.AZURE_OPENAI_API_VERSION, // In Node.js defaults to process.env.AZURE_OPENAI_API_VERSION
     maxRetries: 1,
-  });
+});
 
 // async function getUserEmbedding(paragraph) {
 //     // This uses the Azure OpenAI Embedding endpoint via the @azure/openai package
@@ -273,6 +273,6 @@ app.get("/", (req, res) => {
     });
 });
 
-app.listen(8080, () => {
+app.listen(process.env.PORT || 3000, () => {
     console.log("backend server has started");
 });
