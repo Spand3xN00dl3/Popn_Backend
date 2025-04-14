@@ -29,35 +29,13 @@ const searchClient = new SearchClient(
     new AzureKeyCredential(process.env.AZURE_SEARCH_API_KEY)
 );
 
-// const embeddings = new OpenAIEmbeddings({
-//     // Note: these property names may vary by LangChain version – check the docs for your version
-//     azureOpenAIApiKey: process.env.AZURE_OPENAI_API_KEY,
-//     azureOpenAIApiInstanceName: process.env.AZURE_OPENAI_INSTANCE_NAME,
-//     azureOpenAIApiDeploymentName: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
-//     azureOpenAIApiVersion: process.env.AZURE_OPENAI_API_VERSION,
-//     modelName: process.env.AZURE_OPENAI_MODEL_NAME,
-//   });
-
 const embeddings = new AzureOpenAIEmbeddings({
-    azureOpenAIApiKey: process.env.AZURE_OPENAI_API_KEY, // In Node.js defaults to process.env.AZURE_OPENAI_API_KEY
-    azureOpenAIApiInstanceName: process.env.AZURE_OPENAI_INSTANCE_NAME, // In Node.js defaults to process.env.AZURE_OPENAI_API_INSTANCE_NAME
-    azureOpenAIApiEmbeddingsDeploymentName: process.env.AZURE_OPENAI_DEPLOYMENT_NAME, // In Node.js defaults to process.env.AZURE_OPENAI_API_EMBEDDINGS_DEPLOYMENT_NAME
-    azureOpenAIApiVersion: process.env.AZURE_OPENAI_API_VERSION, // In Node.js defaults to process.env.AZURE_OPENAI_API_VERSION
+    azureOpenAIApiKey: process.env.AZURE_OPENAI_API_KEY,
+    azureOpenAIApiInstanceName: process.env.AZURE_OPENAI_INSTANCE_NAME,
+    azureOpenAIApiEmbeddingsDeploymentName: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+    azureOpenAIApiVersion: process.env.AZURE_OPENAI_API_VERSION,
     maxRetries: 1,
 });
-
-// async function getUserEmbedding(paragraph) {
-//     // This uses the Azure OpenAI Embedding endpoint via the @azure/openai package
-//     const embeddingResponse = await openAIClient.getEmbeddings(
-//         process.env.AZURE_OPENAI_EMBED_MODEL_DEPLOYMENT, 
-//         [paragraph]  // you can send multiple strings if needed
-//     );
-
-//     // embeddingResponse.data is an array of embedding objects (one per input)
-//     // For a single input, we just take embeddingResponse.data[0]
-//     const embedding = embeddingResponse.data[0].embedding;
-//     return embedding;
-// }
 
 app.post('/recommend-clubs', async (req, res) => {
     console.log("reccomend-clubs endpoint reached");
@@ -81,9 +59,6 @@ app.post('/recommend-clubs', async (req, res) => {
                         kNearestNeighborsCount: topN
                     }
                 ]
-                // value: userVector,
-                // k: topN,
-                // fields: 'chunk'
             }
         });
         console.log("obtained results");
@@ -101,37 +76,6 @@ app.post('/recommend-clubs', async (req, res) => {
     } catch(err) {
         return res.status(500).json({ error: "Server Error Ocurred" });
     }
-//   try {
-//     const { userParagraph } = req.body;
-
-//     if (!userParagraph) {
-//       return res.status(400).json({ error: 'Missing userParagraph in request body.' });
-//     }
-
-//     console.log(`User Paragraph ${userParagraph}`);
-//     // A) Convert user paragraph to embedding
-//     const userVector = await getUserEmbedding(userParagraph);
-//     console.log("obtained vector embedding");
-    // B) Perform vector search in Azure Cognitive Search
-    
-    // console.log("obtained results");
-    // // Collect the top 10 matching clubs
-    // const clubs = [];
-    // for await (const result of searchResults.results) {
-    //   clubs.push({
-    //     clubID: result.document.clubID,
-    //     clubName: result.document.clubName,
-    //     clubDescription: result.document.clubDescription,
-    //     score: result.score // optional: see how close the match is
-    //   });
-    // }
-    // console.log("Obtained clubs");
-
-    // return res.json({ clubs });
-//   } catch (error) {
-//     console.error('Error in /recommend-clubs:', error);
-//     return res.status(500).json({ error: 'Server error occurred.' });
-//   }
 });
 
 
