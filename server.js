@@ -78,7 +78,6 @@ app.post('/recommend-clubs', async (req, res) => {
     }
 });
 
-
 app.get('/clubs', async (req, res) => {
     try {
         await sql.connect(sqlConfig);
